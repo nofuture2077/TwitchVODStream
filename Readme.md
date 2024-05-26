@@ -1,3 +1,7 @@
+# Prerequistory
+
+ffmpeg
+
 # Install
 
 npm install
