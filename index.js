@@ -94,8 +94,8 @@ async function preloadVideo(youtubeURL, onData) {
     const audioFormat = ytdl.chooseFormat(videoInfo.formats, { quality: 'highestaudio' });
 
 
-    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat });
-    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat });
+    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat, highWaterMark: 1024*1024*100 });
+    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, highWaterMark: 1024*1024*10 });
 
     const ffmpegMerge = spawn('ffmpeg', [
       '-i', 'pipe:0',
@@ -181,17 +181,18 @@ async function streamPlaylist(playlist) {
     try {
       // Vorladen des Videos
       nextVideo(url);
-      // Schreibe das vorab geladene Video in die FIFO-Datei
-      const writeStream = fs.createWriteStream(fifoPath, { flags: 'a' });
+
+      const writeStream = fs.createWriteStream(fifoPath, { flags: 'a', highWaterMark: 1024*1024*100});
 
       await preloadVideo(url, (data) => {
-        if (!writeStream.write(data)) {
-          writeStream.once('drain', () => {
-          });
-        }
+        writeStream.write(data)
       });
 
-      await videoBuffer.resolve;
+      await new Promise((resolve) => {
+        writeStream.once('drain', () => {
+          resolve();
+        });
+      });
 
       if (++i >= playlist.length) {
         i = 0;
