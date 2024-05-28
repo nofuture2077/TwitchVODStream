@@ -110,7 +110,7 @@ async function preloadVideo(youtubeURL, onData) {
     audioStream.pipe(ffmpegMerge.stdio[1]);
 
     let buffer = [];
-    let bufferChunks = 1024;
+    let bufferChunks = 1024 * 64;
     ffmpegMerge.stdio[2].on('data', (data) => {
         buffer.push(data);
         if (buffer.length >= bufferChunks) {
@@ -146,19 +146,21 @@ function startRtmpStreaming(inputFifoPath, rtmpUrl) {
     '-c:a', 'aac',
     '-b:a', '160k',
     '-vf', 'scale=1920:1080',
-    '-vf', 'fps=30',
+    '-x264-params', 'nal-hrd=cbr', // Verwenden von CBR
+    '-r', '27',
     '-b:v', '4500k',
-    '-crf', '23',
+    '-crf', '28',
     '-f', 'flv', 
-    '-bufsize', '4500k',
-    '-maxrate', '9000k',
-    '-x264-params', 'keyint=60:scenecut=0',
+    '-bufsize', '18000k',
+    '-maxrate', '4500k',
+    '-minrate', '4500k',
     '-bf', '2',
+    '-g', '60',
     rtmpUrl
   ]);
 
-  ffmpegProcess.on('error', (err) => {
-    console.error('Fehler bei ffmpeg (Stream):', err);
+  ffmpegProcess.stdout.on('data', (err) => {
+    console.log('Data bei ffmpeg (Stream):', err);
   });
 
   ffmpegProcess.on('exit', (code, signal) => {
@@ -186,7 +188,7 @@ async function streamPlaylist(playlist) {
   // Starte das Streamen zur RTMP-URL
   startRtmpStreaming(fifoPath, rtmpUrl);
 
-  const writeStream = fs.createWriteStream(fifoPath, { flags: 'a', highWaterMark: 1024*1024*1024 });
+  const writeStream = fs.createWriteStream(fifoPath, { flags: 'a', highWaterMark: 1024*1024*1024*5 });
   writeStream.setMaxListeners(1000);
   let i = 0;
   while (true) {
