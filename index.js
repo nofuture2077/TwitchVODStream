@@ -110,7 +110,7 @@ async function preloadVideo(youtubeURL, onData) {
     audioStream.pipe(ffmpegMerge.stdio[1]);
 
     let buffer = [];
-    let bufferChunks = 256;
+    let bufferChunks = 1024;
     ffmpegMerge.stdio[2].on('data', (data) => {
         buffer.push(data);
         if (buffer.length >= bufferChunks) {
@@ -144,7 +144,7 @@ function startRtmpStreaming(inputFifoPath, rtmpUrl) {
     '-i', inputFifoPath,
     '-c:v', 'libx264',
     '-c:a', 'aac',
-    '-b:a', '192k',
+    '-b:a', '160k',
     '-vf', 'scale=1920:1080',
     '-vf', 'fps=30',
     '-b:v', '4500k',
