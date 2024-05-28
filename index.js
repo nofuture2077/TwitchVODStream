@@ -152,6 +152,7 @@ function startRtmpStreaming(inputFifoPath, rtmpUrl) {
     '-f', 'flv', 
     '-bufsize', '4500k',
     '-maxrate', '9000k',
+    '-x264-params', 'keyint=60:scenecut=0',
     '-bf', '2',
     rtmpUrl
   ]);
