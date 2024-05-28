@@ -94,8 +94,8 @@ async function preloadVideo(youtubeURL, onData) {
     const audioFormat = ytdl.chooseFormat(videoInfo.formats, { quality: 'highestaudio' });
 
 
-    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat, highWaterMark: 1024*1024*100 });
-    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, highWaterMark: 1024*1024*10 });
+    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat });
+    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat });
 
     const ffmpegMerge = spawn('ffmpeg', [
       '-i', 'pipe:0',
@@ -109,7 +109,17 @@ async function preloadVideo(youtubeURL, onData) {
     videoStream.pipe(ffmpegMerge.stdio[0]);
     audioStream.pipe(ffmpegMerge.stdio[1]);
 
-    ffmpegMerge.stdio[2].on('data', onData);
+    let buffer = [];
+    let bufferChunks = 256;
+    ffmpegMerge.stdio[2].on('data', (data) => {
+        buffer.push(data);
+        if (buffer.length >= bufferChunks) {
+            let rest = buffer.slice(bufferChunks);
+            let fullData = buffer.slice(0, bufferChunks);
+            buffer = rest;
+            onData(Buffer.concat(fullData))
+        }
+    });
 
     ffmpegMerge.on('error', (err) => {
       console.error('Fehler bei ffmpeg (Merge):', err);
@@ -118,6 +128,8 @@ async function preloadVideo(youtubeURL, onData) {
 
     ffmpegMerge.on('exit', (code, signal) => {
       if (code === 0) {
+        onData(Buffer.concat(buffer));
+        buffer = [];
         resolve();
       } else {
         reject(new Error(`FFmpeg (Merge) wurde mit Code ${code} und Signal ${signal} beendet`));
@@ -134,11 +146,13 @@ function startRtmpStreaming(inputFifoPath, rtmpUrl) {
     '-c:a', 'aac',
     '-b:a', '192k',
     '-vf', 'scale=1920:1080',
+    '-vf', 'fps=30',
     '-b:v', '4500k',
     '-crf', '23',
     '-f', 'flv', 
     '-bufsize', '4500k',
     '-maxrate', '9000k',
+    '-bf', '2',
     rtmpUrl
   ]);
 
@@ -171,6 +185,8 @@ async function streamPlaylist(playlist) {
   // Starte das Streamen zur RTMP-URL
   startRtmpStreaming(fifoPath, rtmpUrl);
 
+  const writeStream = fs.createWriteStream(fifoPath, { flags: 'a', highWaterMark: 1024*1024*1024 });
+  writeStream.setMaxListeners(1000);
   let i = 0;
   while (true) {
     const url = playlist[i % playlist.length];
@@ -182,15 +198,15 @@ async function streamPlaylist(playlist) {
       // Vorladen des Videos
       nextVideo(url);
 
-      const writeStream = fs.createWriteStream(fifoPath, { flags: 'a', highWaterMark: 1024*1024*100});
-
-      await preloadVideo(url, (data) => {
-        writeStream.write(data)
-      });
-
-      await new Promise((resolve) => {
-        writeStream.once('drain', () => {
-          resolve();
+      await preloadVideo(url, async (data) => {
+        await new Promise((resolve) => {
+          if (!writeStream.write(data)) {
+            writeStream.once('drain',  () => {
+              resolve();
+            });
+          } else {
+            resolve();
+          }
         });
       });
 
