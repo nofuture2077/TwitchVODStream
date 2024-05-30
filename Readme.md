@@ -15,4 +15,7 @@ edit playlist.txt with yt videos
 
 # Run
 
-node index
+
+node download // download all the youtube files in your playlist
+
+node index // stream
