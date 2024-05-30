@@ -4,4 +4,6 @@ package-lock.json
 video_fifo
 playlist.txt
 data/*.json
+data/*.mp4
+data/*.txt
 token/*.json
