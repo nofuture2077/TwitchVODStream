@@ -5,5 +5,7 @@ video_fifo
 playlist.txt
 data/*.json
 data/*.mp4
+data/*.log
+data/*_download
 data/*.txt
 token/*.json

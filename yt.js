@@ -42,10 +42,12 @@ function getFormats(videoInfo) {
 
 async function getVideoDetails(youtubeURL, outputDir) {
   const videoInfo = await getVideoInfo(youtubeURL, outputDir);
+  const [videoFormat, audioFormat] = getFormats(videoInfo);
 
   return {
     title: videoInfo.videoDetails.title,
     lengthSeconds: videoInfo.videoDetails.lengthSeconds,
+    lengthMilliSeconds: videoFormat.approxDurationMs,
     author: videoInfo.videoDetails.author.name,
     uploadDate: videoInfo.videoDetails.uploadDate,
     description: videoInfo.videoDetails.description
@@ -61,7 +63,7 @@ const multibar = new cliProgress.MultiBar({
 function getFilenames(youtubeURLs, outputDir) {
   return youtubeURLs.map((youtubeURL) => {
     const videoId = getVideoId(youtubeURL);
-    return `${videoId}.mp4`;
+    return path.join(outputDir, `${videoId}.mp4`);
   });
 }
 
@@ -79,6 +81,8 @@ async function downloadVideo(youtubeURL, outputDir) {
       console.log('File already exists. Skip Download ' + videoId)
       return resolve();
     }
+
+    console.log('Started download ' + videoId);
 
     const [videoFormat, audioFormat] = getFormats(videoInfo);
 
@@ -98,19 +102,23 @@ async function downloadVideo(youtubeURL, outputDir) {
       '-i', 'pipe:1',
       '-c:v', 'libx264',
       '-c:a', 'aac',
+      '-err_detect', 'ignore_err',
+      '-fflags', '+discardcorrupt',
+      '-vf', 'setpts=PTS-STARTPTS',
+      '-af', 'aresample=async=1',
       '-b:a', '160k',
+      '-b:v', '4500k',
       '-vf', 'scale=1920:1080',
       '-r', '30',
-      '-b:v', '6000k',
-      '-crf', '26',
+      '-b', '4500k',
+      '-muxrate', '4500k',
+      '-bufsize', '4500k',
+      '-maxrate', '4500k',
+      '-minrate', '4500k',
       '-f', 'mpegts',
-      '-bufsize', '12000k',
-      '-maxrate', '6000k',
-      '-minrate', '6000k',
-      '-bf', '2',
-      '-g', '60',
+      '-x264opts', 'keyint=30:min-keyint=30:scenecut=30',
       '-y',
-      path.join(outputDir, `${videoId}_download`)
+      path.join(outputDir, `${videoId}_download.mp4`)
     ]);
 
     videoStream.pipe(ffmpegMerge.stdio[0]);
@@ -127,7 +135,7 @@ async function downloadVideo(youtubeURL, outputDir) {
       multibar.remove(progressBar);
       if (code === 0) {
         console.log('Finished download ' + videoId);
-        fs.renameSync(path.join(outputDir, `${videoId}_download`), path.join(outputDir, `${videoId}.mp4`));
+        fs.renameSync(path.join(outputDir, `${videoId}_download.mp4`), path.join(outputDir, `${videoId}.mp4`));
         resolve();
       } else {
         reject(new Error(`FFmpeg (Merge) wurde mit Code ${code} und Signal ${signal} beendet`));
