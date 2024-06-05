@@ -1,8 +1,12 @@
+require('dotenv').config();
+
 const ytdl = require('ytdl-core');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const cliProgress = require('cli-progress');
+
+const H264ENCODER = process.env.H264ENCODER;
 
 function getVideoId(url) {
   const match = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^/]+\/.+|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube.com\/shorts\/)([^"&?/\s]{11})/i);
@@ -11,23 +15,15 @@ function getVideoId(url) {
 
 const videoInfos = {};
 
-async function getVideoInfo(youtubeURL, outputDir) {
+async function getVideoInfo(youtubeURL) {
   const videoId = getVideoId(youtubeURL);
   return new Promise(async (resolve, reject) => {
     if (videoInfos[videoId]) {
       return resolve(videoInfos[videoId]);
     }
-    const infoPath = path.join(outputDir, `${videoId}_info.json`);
-    if (fs.existsSync(infoPath)) {
-      const videoInfo = JSON.parse(fs.readFileSync(infoPath, 'UTF-8'));
-      videoInfos[videoId] = videoInfo;
-      resolve(videoInfo);
-    } else {
-      const videoInfo = await ytdl.getInfo(youtubeURL);
-      fs.writeFileSync(infoPath, JSON.stringify(videoInfo, null, 2));
-      videoInfos[videoId] = videoInfo;
-      resolve(videoInfo);
-    }
+    const videoInfo = await ytdl.getInfo(youtubeURL);
+    videoInfos[videoId] = videoInfo;
+    resolve(videoInfo);
   });
 }
 
@@ -40,8 +36,8 @@ function getFormats(videoInfo) {
   return [videoFormat, audioFormat];
 }
 
-async function getVideoDetails(youtubeURL, outputDir) {
-  const videoInfo = await getVideoInfo(youtubeURL, outputDir);
+async function getVideoDetails(youtubeURL) {
+  const videoInfo = await getVideoInfo(youtubeURL);
   const [videoFormat, audioFormat] = getFormats(videoInfo);
 
   return {
@@ -69,7 +65,7 @@ function getFilenames(youtubeURLs, outputDir) {
 
 async function downloadVideo(youtubeURL, outputDir) {
   const fileExists = await videoExists(youtubeURL, outputDir);
-  const videoInfo = await getVideoInfo(youtubeURL, outputDir);
+  const videoInfo = await getVideoInfo(youtubeURL);
 
   return new Promise((resolve, reject) => {
     const videoId = getVideoId(youtubeURL);
@@ -100,7 +96,7 @@ async function downloadVideo(youtubeURL, outputDir) {
     const ffmpegMerge = spawn('ffmpeg', [
       '-i', 'pipe:0',
       '-i', 'pipe:1',
-      '-c:v', 'libx264',
+      '-c:v', H264ENCODER,
       '-c:a', 'aac',
       '-err_detect', 'ignore_err',
       '-fflags', '+discardcorrupt',
@@ -144,6 +140,81 @@ async function downloadVideo(youtubeURL, outputDir) {
   });
 }
 
+async function streamVideo(youtubeURL, outputDir, fifoPath) {
+  const videoInfo = await getVideoInfo(youtubeURL);
+
+  return new Promise((resolve, reject) => {
+    const videoId = getVideoId(youtubeURL);
+    if (!videoId) {
+      throw new Error(`Ungültige YouTube-URL: ${youtubeURL}`);
+    }
+
+    const [videoFormat, audioFormat] = getFormats(videoInfo);
+
+    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat, dlChunkSize: 1024 * 1024 * 1 });
+    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 1024 * 1 });
+
+    const ffmpegMerge = spawn('ffmpeg', [
+      '-re',
+      '-i', 'pipe:0',
+      '-i', 'pipe:1',
+      '-c:v', H264ENCODER,
+      '-c:a', 'aac',
+      '-b:a', '160k',
+      '-b:v', '6000k',
+      '-vf', 'scale=1920:1080',
+      '-r', '30',
+      '-b', '6000k',
+      '-muxrate', '6000k',
+      '-bufsize', '6000k',
+      '-maxrate', '6000k',
+      '-minrate', '6000k',
+      '-f', 'mpegts',
+      'pipe:2'
+    ]);
+
+    videoStream.pipe(ffmpegMerge.stdio[0]);
+    audioStream.pipe(ffmpegMerge.stdio[1]);
+
+    console.error('Start Streaming ' + youtubeURL);
+
+    const fifoWriteStream = fs.createWriteStream(fifoPath, { flags: 'a' });
+    const buffer = [];
+    const bufferSize = 1024 * 1024; // 1MB Buffer
+
+    ffmpegMerge.stdio[2].on('data', (data) => {
+      buffer.push(data);
+      const bufferedLength = buffer.reduce((acc, chunk) => acc + chunk.length, 0);
+      if (bufferedLength >= bufferSize) {
+        const combinedBuffer = Buffer.concat(buffer);
+        fifoWriteStream.write(combinedBuffer);
+        buffer.length = 0; // Clear buffer
+      }
+    });
+
+    ffmpegMerge.on('error', (err) => {
+      console.error('Fehler bei ffmpeg (Merge):', err);
+      reject(err);
+    });
+
+    ffmpegMerge.on('exit', (code, signal) => {
+      if (buffer.length > 0) {
+        const combinedBuffer = Buffer.concat(buffer);
+        fifoWriteStream.write(combinedBuffer);
+        buffer.length = 0; // Clear buffer
+      }
+      fifoWriteStream.end();
+      if (code === 0) {
+        console.error('Finished Streaming ' + youtubeURL);
+        resolve();
+      } else {
+        reject(new Error(`FFmpeg (Merge) wurde mit Code ${code} und Signal ${signal} beendet`));
+      }
+    });
+  });
+}
+
+
 async function videoExists(youtubeURL, outputDir) {
   const videoId = getVideoId(youtubeURL);
   if (!videoId) {
@@ -158,6 +229,7 @@ module.exports = {
   getVideoInfo,
   getVideoDetails,
   downloadVideo,
+  streamVideo,
   videoExists,
   getFormats,
   getFilenames

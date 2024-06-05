@@ -34,7 +34,6 @@ if (channelUserId && channelUserId !== 'undefined') {
     twitchApi = new ApiClient({ authProvider });
 }
 
-
 function changeTwitchTitle(videoDetails) {
     const title = '[24/7 VOD] ' + videoDetails.title;
     twitchApi.channels.updateChannelInfo(channelUserId, {title});

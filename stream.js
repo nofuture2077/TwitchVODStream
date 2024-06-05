@@ -43,6 +43,8 @@ function startRtmpStreaming(input, outDir, skip) {
     const status = readStatus(statusFilePath);
     const skipTime = skip ? (status.runningTime || 0) : 0;
 
+    console.log('Stream zu Twitch gestartet');
+
     const ffmpegArgs = [
         '-ss', skipTime,
         '-re',

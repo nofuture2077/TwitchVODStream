@@ -3,8 +3,9 @@ require('dotenv').config();
 const yargs = require('yargs');
 const { hideBin } = require('yargs/helpers');
 const { startRtmpStreaming } = require('./stream');
-const { getFilenames, getVideoDetails } = require('./yt');
+const { getFilenames, getVideoDetails, streamVideo } = require('./yt');
 const { autoChangeTitle } = require('./twitch');
+const { createFifo } = require('./fifo');
 
 const argv = yargs(hideBin(process.argv))
     .option('playlist', {
@@ -31,21 +32,26 @@ const argv = yargs(hideBin(process.argv))
     .argv;
 
 
-const { readPlaylist, createFFmpegPlaylist } = require('./playlist');
+const { readPlaylist } = require('./playlist');
 
 
 const playlistPath = argv.playlist;
 const outDir = argv.outDir;
 const skip = argv.skip;
 
-readPlaylist(playlistPath, outDir).then((youtubeURLs) => {
-  const filenames = getFilenames(youtubeURLs, outDir);
-  let repeatedArray = Array.from({ length: 10 }, () => filenames).flat();
-  const concatFiles = "concat:" + repeatedArray.join("|");
-  startRtmpStreaming(concatFiles, outDir, skip);
-  
+const fifo = createFifo();
+startRtmpStreaming(fifo, outDir, skip);
+
+readPlaylist(playlistPath, outDir).then(async (youtubeURLs) => {
   const playlistInfoPr = youtubeURLs.map(url => getVideoDetails(url, outDir));
   Promise.all(playlistInfoPr).then((playlistInfo) => {
     autoChangeTitle(playlistInfo);
   });
+  while (true) {
+    for (let i = 0; i < youtubeURLs.length;i++) {
+      await new Promise((resolve) => {
+        streamVideo(youtubeURLs[i], outDir, fifo).then(resolve);
+      })
+    }
+  }
 });
