@@ -149,7 +149,7 @@ function msToTime(duration) {
 }
 
 
-async function streamVideo(youtubeURL, offset, fifoPath) {
+async function streamVideo(youtubeURL, offset, fifoPath, outputDir) {
   const videoInfo = await getVideoInfo(youtubeURL);
 
   return new Promise((resolve, reject) => {
@@ -157,7 +157,7 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
     if (!videoId) {
       throw new Error(`Ungültige YouTube-URL: ${youtubeURL}`);
     }
-    const logFilePath = path.join(outDir, 'ffmpeg_stream.log');
+    const logFilePath = path.join(outputDir, 'ffmpeg_stream.log');
     const logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
 
     const [videoFormat, audioFormat] = getFormats(videoInfo);

@@ -52,7 +52,7 @@ readPlaylist(playlistPath, outDir).then(async (youtubeURLs) => {
     let [startIndex, offset] = skip ? getCurrentVideoIndexAndOffset(playlistInfo, statusInfo.runningTime * 1000) : [0, 0];
     for (let i = startIndex;true;i++) {
       await new Promise((resolve) => {
-        streamVideo(youtubeURLs[i % youtubeURLs.length], offset, fifo).then(resolve);
+        streamVideo(youtubeURLs[i % youtubeURLs.length], offset, fifo, outDir).then(resolve);
       })
       offset = 0;
     }
