@@ -157,6 +157,8 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
     if (!videoId) {
       throw new Error(`Ungültige YouTube-URL: ${youtubeURL}`);
     }
+    const logFilePath = path.join(outDir, 'ffmpeg_stream.log');
+    const logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
 
     const [videoFormat, audioFormat] = getFormats(videoInfo);
 
@@ -224,6 +226,15 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
       }
     });
 
+    ffmpegMerge.stdout.on('data', (data) => {
+        logStream.write(data);
+    });
+
+    ffmpegMerge.stderr.on('data', (data) => {
+        logStream.write(data);
+    });
+
+
     ffmpegMerge.on('error', (err) => {
       console.error('Fehler bei ffmpeg (Merge):', err);
       reject(err);
@@ -233,8 +244,9 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
       if (buffer.length > 0) {
         const combinedBuffer = Buffer.concat(buffer);
         fifoWriteStream.write(combinedBuffer);
-        buffer.length = 0; // Clear buffer
+        buffer = []; // Clear buffer
       }
+      logStream.end();
       fifoWriteStream.end();
       if (code === 0) {
         console.error('Finished Streaming ' + youtubeURL);
