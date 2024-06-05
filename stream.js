@@ -58,9 +58,13 @@ function startRtmpStreaming(input, outDir, skip) {
         '-fflags', '+discardcorrupt',
         '-fflags', '+genpts',
         '-i', input,
-        '-c:v', 'copy',
+        '-c:v', H264ENCODER,
         '-c:a', 'copy',
         '-f', 'flv',
+        '-maxrate', '6000k',
+        '-minrate', '6000k',
+        '-muxrate', '6000k',
+        '-x264opts', 'keyint=30:min-keyint=30:scenecut=30',
         rtmpUrl
     ];
 
