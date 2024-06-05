@@ -149,8 +149,8 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
 
     console.log('Video offset: ' + offset);
 
-    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat, dlChunkSize: 1024 * 1024 * 1, begin: offset });
-    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 1024 * 1, begin: offset });
+    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat, dlChunkSize: 1024 * 1024 * 1 });
+    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 1024 * 1 });
 
     const ffmpegMerge = spawn('ffmpeg', [
       '-re',
@@ -180,29 +180,23 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
     const fifoWriteStream = fs.createWriteStream(fifoPath, { flags: 'a' });
     let buffer = [];
     const bufferSize = 1024 * 1024; // 1MB Buffer
-    let isWriting = false;
+    let canWrite = true;
 
     function writeBuffer() {
-      if (buffer.length > 0 && !isWriting) {
-        const combinedBuffer = Buffer.concat(buffer);
-        isWriting = true;
-        const canWrite = fifoWriteStream.write(combinedBuffer);
-        buffer = [];
-        if (!canWrite) {
-          fifoWriteStream.once('drain', () => {
-            isWriting = false;
-            writeBuffer();
-          });
-        } else {
-          isWriting = false;
-        }
+      const combinedBuffer = Buffer.concat(buffer);
+      buffer = [];
+      if (!fifoWriteStream.write(combinedBuffer)) {
+        canWrite = false;
+        fifoWriteStream.once('drain', () => {
+          canWrite = true;
+        });
       }
     }
 
     ffmpegMerge.stdio[2].on('data', (data) => {
       buffer.push(data);
       const bufferedLength = buffer.reduce((acc, chunk) => acc + chunk.length, 0);
-      if (bufferedLength >= bufferSize) {
+      if (bufferedLength >= bufferSize && canWrite) {
         writeBuffer();
       }
     });
