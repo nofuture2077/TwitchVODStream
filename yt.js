@@ -136,6 +136,19 @@ async function downloadVideo(youtubeURL, outputDir) {
   });
 }
 
+function msToTime(duration) {
+  let seconds = Math.floor((duration / 1000) % 60);
+  let minutes = Math.floor((duration / (1000 * 60)) % 60);
+  let hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
+
+  hours = (hours < 10) ? "0" + hours : hours;
+  minutes = (minutes < 10) ? "0" + minutes : minutes;
+  seconds = (seconds < 10) ? "0" + seconds : seconds;
+
+  return hours + ":" + minutes + ":" + seconds;
+}
+
+
 async function streamVideo(youtubeURL, offset, fifoPath) {
   const videoInfo = await getVideoInfo(youtubeURL);
 
@@ -153,7 +166,7 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
     const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 1024 * 1 });
 
     const ffmpegMerge = spawn('ffmpeg', [
-      '-re',
+      //'-ss', msToTime(offset),
       '-i', 'pipe:0',
       '-i', 'pipe:1',
       '-c:v', H264ENCODER,
@@ -187,8 +200,12 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
       buffer = [];
       if (!fifoWriteStream.write(combinedBuffer)) {
         canWrite = false;
+        videoStream.pause();
+        audioStream.pause();
         fifoWriteStream.once('drain', () => {
           canWrite = true;
+          videoStream.resume();
+          audioStream.resume();
         });
       }
     }
@@ -196,7 +213,7 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
     ffmpegMerge.stdio[2].on('data', (data) => {
       buffer.push(data);
       const bufferedLength = buffer.reduce((acc, chunk) => acc + chunk.length, 0);
-      if (bufferedLength >= bufferSize && canWrite) {
+      if ((bufferedLength >= bufferSize) && canWrite) {
         writeBuffer();
       }
     });

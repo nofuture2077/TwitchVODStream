@@ -15,7 +15,7 @@ const H264ENCODER = process.env.H264ENCODER;
  * @param {string} statusFilePath - The file path to write the status information.
  */
 function writeStatus(statusInfo, statusFilePath) {
-    fs.writeFileSync(statusFilePath, JSON.stringify(statusInfo, null, 2));
+    fs.writeFileSync(statusFilePath, JSON.stringify(statusInfo));
 }
 
 /**
@@ -29,7 +29,12 @@ function readStatus(outDir) {
     if (!fs.existsSync(statusFilePath)) {
         return { runningTime: 0 };
     }
-    return JSON.parse(fs.readFileSync(statusFilePath, 'UTF-8'));
+    try {
+        return JSON.parse(fs.readFileSync(statusFilePath, 'UTF-8'));
+    } catch (ex) {
+        return { runningTime: 0 };
+    }
+    
 }
 
 /**
