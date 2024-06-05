@@ -226,18 +226,13 @@ async function streamVideo(youtubeURL, offset, fifoPath, outputDir) {
       }
     });
 
-    ffmpegMerge.stdout.on('data', (data) => {
-        logStream.write(data);
-    });
-
     ffmpegMerge.stderr.on('data', (data) => {
         logStream.write(data);
     });
 
-
     ffmpegMerge.on('error', (err) => {
       console.error('Fehler bei ffmpeg (Merge):', err);
-      reject(err);
+      logStream.write(err);
     });
 
     ffmpegMerge.on('exit', (code, signal) => {
