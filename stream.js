@@ -55,8 +55,6 @@ function startRtmpStreaming(input, outDir, skip) {
         '-i', input,
         '-c:v', 'copy',
         '-c:a', 'copy',
-        '-bufsize', '6000k',
-        '-b:v', '6000k',
         '-f', 'flv',
         rtmpUrl
     ];

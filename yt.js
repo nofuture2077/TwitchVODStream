@@ -162,12 +162,13 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
       '-b:v', '6000k',
       '-vf', 'scale=1920:1080',
       '-r', '30',
-      '-b', '6000k',
+      '-b:v', '6000k',
       '-muxrate', '6000k',
       '-bufsize', '6000k',
       '-maxrate', '6000k',
       '-minrate', '6000k',
       '-f', 'mpegts',
+      '-x264opts', 'keyint=30:min-keyint=30:scenecut=30',
       'pipe:2'
     ]);
 
