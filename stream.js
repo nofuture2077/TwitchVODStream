@@ -6,6 +6,7 @@ const path = require('path');
 
 // Retrieve the RTMP URL from environment variables
 const rtmpUrl = process.env.RTMP_URL;
+const H264ENCODER = process.env.H264ENCODER;
 
 /**
  * Writes status information to a specified file.
@@ -51,8 +52,15 @@ function startRtmpStreaming(input, outDir, skip) {
         '-err_detect', 'ignore_err',
         '-fflags', '+discardcorrupt',
         '-i', input,
-        '-c:a', 'copy',
+        '-c:v', H264ENCODER,
         '-c:v', 'copy',
+        '-r', '30',
+        '-b', '6000k',
+        '-muxrate', '6000k',
+        '-bufsize', '6000k',
+        '-maxrate', '6000k',
+        '-minrate', '6000k',
+        '-x264opts', 'keyint=30:min-keyint=30:scenecut=30',
         '-f', 'flv',
         rtmpUrl
     ];
