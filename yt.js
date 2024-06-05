@@ -166,6 +166,7 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
     const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 128 * 1 });
 
     const ffmpegMerge = spawn('ffmpeg', [
+      '-re',
       '-i', 'pipe:0',
       '-i', 'pipe:1',
       '-c:v', H264ENCODER,
