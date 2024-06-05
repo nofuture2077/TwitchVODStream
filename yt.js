@@ -162,28 +162,30 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
 
     console.log('Video offset: ' + offset);
 
-    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat, dlChunkSize: 1024 * 1024 * 1 });
-    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 1024 * 1 });
+    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat, dlChunkSize: 1024 * 128 * 1 });
+    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 128 * 1 });
 
     const ffmpegMerge = spawn('ffmpeg', [
-      '-re',
       '-i', 'pipe:0',
       '-i', 'pipe:1',
       '-c:v', H264ENCODER,
       '-c:a', 'aac',
       '-b:a', '160k',
       '-b:v', '6000k',
+      '-vf', 'setpts=PTS-STARTPTS',
+      '-af', 'aresample=async=1',
       '-vf', 'scale=1920:1080',
       '-r', '30',
       '-err_detect', 'ignore_err',
       '-fflags', '+discardcorrupt',
       '-fflags', '+genpts',
-      '-b:v', '6000k',
       '-muxrate', '6000k',
-      '-bufsize', '6000k',
+      '-bufsize', '12000k',
       '-maxrate', '6000k',
       '-minrate', '6000k',
       '-f', 'mpegts',
+      '-bf', '2',
+      '-g', '60',
       '-x264opts', 'keyint=30:min-keyint=30:scenecut=30',
       'pipe:2'
     ]);
@@ -195,7 +197,7 @@ async function streamVideo(youtubeURL, offset, fifoPath) {
 
     const fifoWriteStream = fs.createWriteStream(fifoPath, { flags: 'a' });
     let buffer = [];
-    const bufferSize = 1024 * 1024; // 1MB Buffer
+    const bufferSize = 1024 * 128;
     let canWrite = true;
 
     function writeBuffer() {
