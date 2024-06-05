@@ -42,8 +42,8 @@ async function getVideoDetails(youtubeURL) {
 
   return {
     title: videoInfo.videoDetails.title,
-    lengthSeconds: videoInfo.videoDetails.lengthSeconds,
-    lengthMilliSeconds: videoFormat.approxDurationMs,
+    lengthSeconds: Number(videoInfo.videoDetails.lengthSeconds),
+    lengthMilliSeconds: Number(videoFormat.approxDurationMs),
     author: videoInfo.videoDetails.author.name,
     uploadDate: videoInfo.videoDetails.uploadDate,
     description: videoInfo.videoDetails.description
@@ -140,7 +140,7 @@ async function downloadVideo(youtubeURL, outputDir) {
   });
 }
 
-async function streamVideo(youtubeURL, outputDir, fifoPath) {
+async function streamVideo(youtubeURL, offset, fifoPath) {
   const videoInfo = await getVideoInfo(youtubeURL);
 
   return new Promise((resolve, reject) => {
@@ -151,8 +151,10 @@ async function streamVideo(youtubeURL, outputDir, fifoPath) {
 
     const [videoFormat, audioFormat] = getFormats(videoInfo);
 
-    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat, dlChunkSize: 1024 * 1024 * 1 });
-    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 1024 * 1 });
+    console.log('Video offset: ' + offset);
+
+    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat, dlChunkSize: 1024 * 1024 * 1, begin: offset });
+    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 1024 * 1, begin: offset });
 
     const ffmpegMerge = spawn('ffmpeg', [
       '-re',

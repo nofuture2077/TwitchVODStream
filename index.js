@@ -2,9 +2,10 @@ require('dotenv').config();
 
 const yargs = require('yargs');
 const { hideBin } = require('yargs/helpers');
-const { startRtmpStreaming } = require('./stream');
-const { getFilenames, getVideoDetails, streamVideo } = require('./yt');
+const { startRtmpStreaming, readStatus } = require('./stream');
+const { getVideoDetails, streamVideo } = require('./yt');
 const { autoChangeTitle } = require('./twitch');
+const { getCurrentVideoIndexAndOffset } = require('./playlist');
 const { createFifo } = require('./fifo');
 
 const argv = yargs(hideBin(process.argv))
@@ -41,17 +42,19 @@ const skip = argv.skip;
 
 const fifo = createFifo();
 startRtmpStreaming(fifo, outDir, skip);
+const statusInfo = readStatus(outDir);
 
 readPlaylist(playlistPath, outDir).then(async (youtubeURLs) => {
   const playlistInfoPr = youtubeURLs.map(url => getVideoDetails(url, outDir));
-  Promise.all(playlistInfoPr).then((playlistInfo) => {
-    autoChangeTitle(playlistInfo);
-  });
-  while (true) {
-    for (let i = 0; i < youtubeURLs.length;i++) {
+  Promise.all(playlistInfoPr).then(async (playlistInfo) => {
+    autoChangeTitle(playlistInfo, statusInfo.runningTime * 1000);
+
+    let [startIndex, offset] = skip ? getCurrentVideoIndexAndOffset(playlistInfo, statusInfo.runningTime * 1000) : [0, 0];
+    for (let i = startIndex;true;i++) {
       await new Promise((resolve) => {
-        streamVideo(youtubeURLs[i], outDir, fifo).then(resolve);
+        streamVideo(youtubeURLs[i % youtubeURLs.length], offset, fifo).then(resolve);
       })
+      offset = 0;
     }
-  }
+  });
 });

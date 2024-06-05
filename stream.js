@@ -23,9 +23,10 @@ function writeStatus(statusInfo, statusFilePath) {
  * @param {string} statusFilePath - The file path to read the status information.
  * @returns {Object} The status information read from the file.
  */
-function readStatus(statusFilePath) {
+function readStatus(outDir) {
+    const statusFilePath = path.join(outDir, 'status.json');
     if (!fs.existsSync(statusFilePath)) {
-        return {};
+        return { runningTime: 0 };
     }
     return JSON.parse(fs.readFileSync(statusFilePath, 'UTF-8'));
 }
@@ -40,13 +41,12 @@ function readStatus(statusFilePath) {
 function startRtmpStreaming(input, outDir, skip) {
     const statusFilePath = path.join(outDir, 'status.json');
     const logFilePath = path.join(outDir, 'ffmpeg.log');
-    const status = readStatus(statusFilePath);
+    const status = readStatus(outDir);
     const skipTime = skip ? (status.runningTime || 0) : 0;
 
     console.log('Stream zu Twitch gestartet');
 
     const ffmpegArgs = [
-        '-ss', skipTime,
         '-re',
         '-err_detect', 'ignore_err',
         '-fflags', '+discardcorrupt',

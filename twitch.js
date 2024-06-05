@@ -41,13 +41,13 @@ function changeTwitchTitle(videoDetails) {
     return title;
 }
 
-function autoChangeTitle(playlistInfo) {
+function autoChangeTitle(playlistInfo, skip) {
     if (!twitchApi) {
         return;
     }
     let currentTitle = '';
     let interval = 10000;
-    let time = 0;
+    let time = skip || 0;
     setInterval(() => {
         time += interval;
         const videoDetails = getCurrentVideo(playlistInfo, time);
