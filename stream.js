@@ -51,6 +51,7 @@ function startRtmpStreaming(input, outDir, skip) {
         '-re',
         '-err_detect', 'ignore_err',
         '-fflags', '+discardcorrupt',
+        '-fflags', '+genpts',
         '-i', input,
         '-c:v', 'copy',
         '-c:a', 'copy',
