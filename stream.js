@@ -53,7 +53,7 @@ function startRtmpStreaming(input, outDir, skip) {
         '-fflags', '+discardcorrupt',
         '-i', input,
         '-c:v', H264ENCODER,
-        '-c:v', 'copy',
+        '-c:a', 'copy',
         '-r', '30',
         '-b', '6000k',
         '-muxrate', '6000k',
