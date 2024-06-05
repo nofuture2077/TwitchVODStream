@@ -53,6 +53,7 @@ function startRtmpStreaming(input, outDir, skip) {
     console.log('Stream zu Twitch gestartet');
 
     const ffmpegArgs = [
+        '-re',
         '-i', input,
         '-c:v', 'copy',
         '-c:a', 'copy',
