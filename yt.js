@@ -199,7 +199,7 @@ async function streamVideo(youtubeURL, offset, fifoPath, outputDir) {
 
     console.error('Start Streaming ' + youtubeURL);
 
-    const fifoWriteStream = fs.createWriteStream(fifoPath, { flags: 'a' });
+    const fifoWriteStream = fs.createWriteStream(fifoPath, { flags: 'a', highWaterMark: 1024*1024*128});
     let buffer = [];
     const bufferSize = 1024 * 128;
     let canWrite = true;
@@ -218,6 +218,17 @@ async function streamVideo(youtubeURL, offset, fifoPath, outputDir) {
         });
       }
     }
+
+    videoStream.on('error', (err) => {
+      console.log('Download error ' +  err);
+      logStream.write(err);
+    });
+
+
+    videoStream.on('exit', (err) => {
+      console.log('Download exit ' +  err);
+      logStream.write(err);
+    });
 
     ffmpegMerge.stdio[2].on('data', (data) => {
       buffer.push(data);
