@@ -168,7 +168,6 @@ async function streamVideo(youtubeURL, offset, fifoPath, outputDir) {
     const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 16 * 1, liveBuffer: 4000, highWaterMark: 1024 * 1024 });
 
     const ffmpegMerge = spawn('ffmpeg', [
-      '-re',
       '-i', 'pipe:0',
       '-i', 'pipe:1',
       '-c:v', H264ENCODER,
@@ -199,7 +198,7 @@ async function streamVideo(youtubeURL, offset, fifoPath, outputDir) {
 
     console.error('Start Streaming ' + youtubeURL);
 
-    const fifoWriteStream = fs.createWriteStream(fifoPath, { flags: 'a', highWaterMark: 1024*1024*128});
+    const fifoWriteStream = fs.createWriteStream(fifoPath, { encoding: "binary", flags: 'a', highWaterMark: 1024*1024*32});
     let buffer = [];
     const bufferSize = 1024 * 128;
     let canWrite = true;
