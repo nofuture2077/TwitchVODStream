@@ -164,8 +164,8 @@ async function streamVideo(youtubeURL, offset, fifoPath, outputDir) {
 
     console.log('Video offset: ' + offset);
 
-    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat, dlChunkSize: 1024 * 128 * 1 });
-    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 128 * 1 });
+    const videoStream = ytdl.downloadFromInfo(videoInfo, { format: videoFormat, dlChunkSize: 1024 * 128 * 1, liveBuffer: 4000, highWaterMark: 1024 * 1024 * 8 });
+    const audioStream = ytdl.downloadFromInfo(videoInfo, { format: audioFormat, dlChunkSize: 1024 * 16 * 1, liveBuffer: 4000, highWaterMark: 1024 * 1024 });
 
     const ffmpegMerge = spawn('ffmpeg', [
       '-re',
@@ -224,10 +224,6 @@ async function streamVideo(youtubeURL, offset, fifoPath, outputDir) {
       if ((bufferedLength >= bufferSize) && canWrite) {
         writeBuffer();
       }
-    });
-
-    ffmpegMerge.stderr.on('data', (data) => {
-        logStream.write(data);
     });
 
     ffmpegMerge.on('error', (err) => {
