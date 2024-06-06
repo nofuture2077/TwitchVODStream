@@ -57,6 +57,8 @@ function startRtmpStreaming(input, outDir, skip) {
         '-i', input,
         '-c:v', 'copy',
         '-c:a', 'copy',
+        '-fflags', '+genpts',
+        '-use_wallclock_as_timestamps', '1',
         '-f', 'flv',
         rtmpUrl
     ];

@@ -182,6 +182,7 @@ async function streamVideo(youtubeURL, offset, fifoPath, outputDir) {
       '-err_detect', 'ignore_err',
       '-fflags', '+discardcorrupt',
       '-fflags', '+genpts',
+      '-use_wallclock_as_timestamps', '1',
       '-muxrate', '6000k',
       '-bufsize', '12000k',
       '-maxrate', '6000k',
